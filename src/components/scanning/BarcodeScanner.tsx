@@ -1,16 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import {
-  Scan,
-  X,
-  Camera,
-  Keyboard,
-  CheckCircle,
-  AlertTriangle,
-  Loader2
-} from 'lucide-react'
-import { Result, BrowserMultiFormatReader } from '@zxing/library'
+import { Scan, X, Camera, Keyboard, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -21,766 +12,264 @@ interface Props {
   expectedValue?: string
 }
 
-export default function BarcodeScanner({
-  title,
-  instruction,
-  onScan,
-  onClose,
-  expectedValue
-}: Props) {
-
-  const [mode, setMode] =
-    useState<'usb' | 'camera' | 'manual'>('usb')
-
+export default function BarcodeScanner({ title, instruction, onScan, onClose, expectedValue }: Props) {
+  const [mode, setMode] = useState<'usb' | 'camera' | 'manual'>('usb')
   const [manualInput, setManualInput] = useState('')
   const [cameraLoading, setCameraLoading] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [lastScan, setLastScan] = useState<string | null>(null)
-
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null)
-
+  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // USB scanner buffer
   const usbBuffer = useRef('')
   const usbLastKey = useRef(0)
 
-
-  // ---------------------------
-  // USB Scanner
-  // ---------------------------
-
+  // Focus the hidden input for USB scanner capture
   useEffect(() => {
-
     if (mode === 'usb' && inputRef.current) {
       inputRef.current.focus()
     }
-
   }, [mode])
 
-
+  // USB keyboard wedge listener
   useEffect(() => {
-
     if (mode !== 'usb') return
 
-
-    const handleKey = (e: KeyboardEvent) => {
-
+    function handleKey(e: KeyboardEvent) {
       const now = Date.now()
-
-      if (now - usbLastKey.current > 200) {
-        usbBuffer.current = ''
-      }
-
+      if (now - usbLastKey.current > 200) usbBuffer.current = ''
       usbLastKey.current = now
 
-
       if (e.key === 'Enter') {
-
-        const value = usbBuffer.current.trim()
-
-        if (value.length >= 3) {
-          setLastScan(value)
-          onScan(value)
+        const val = usbBuffer.current.trim()
+        if (val.length >= 3) {
+          setLastScan(val)
+          onScan(val)
         }
-
         usbBuffer.current = ''
-
       } else if (e.key.length === 1) {
-
         usbBuffer.current += e.key
-
       }
-
     }
 
-
-    window.addEventListener(
-      'keydown',
-      handleKey
-    )
-
-
-    return () => {
-      window.removeEventListener(
-        'keydown',
-        handleKey
-      )
-    }
-
-
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
   }, [mode, onScan])
 
-
-
-
-  // ---------------------------
-  // Camera
-  // ---------------------------
-
-  const stopCamera = useCallback(() => {
-
-    readerRef.current?.reset()
-    readerRef.current = null
-
-
-    streamRef.current
-      ?.getTracks()
-      .forEach(track => track.stop())
-
-
-    streamRef.current = null
-
-  }, [])
-
-
-
-  const startDecoding = useCallback(async () => {
-
-    try {
-
-      if (!videoRef.current) {
-        return
-      }
-
-
-      const reader =
-        new BrowserMultiFormatReader()
-
-
-      readerRef.current = reader
-
-
-      reader.decodeFromVideoElement(
-        videoRef.current,
-        (result: Result | null) => {
-
-          if (!result) {
-            return
-          }
-
-
-          const value =
-            result.getText()
-
-
-          setLastScan(value)
-
-          onScan(value)
-
-          stopCamera()
-
-        }
-      )
-
-
-    } catch (err) {
-
-      console.error(err)
-
-      setCameraError(
-        'Barcode scanner unavailable.'
-      )
-
-    }
-
-
-  }, [onScan, stopCamera])
-
-
-
-
-
+  // Camera setup
   const startCamera = useCallback(async () => {
-
     setCameraLoading(true)
     setCameraError(null)
-
-
     try {
-
-      const stream =
-        await navigator.mediaDevices.getUserMedia({
-
-          video: {
-            facingMode: {
-              ideal: 'environment'
-            },
-
-            width: {
-              ideal: 1280
-            },
-
-            height: {
-              ideal: 720
-            }
-
-          },
-
-          audio: false
-
-        })
-
-
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
       streamRef.current = stream
-
-
-
-      if (!videoRef.current) {
-        throw new Error(
-          'Video element unavailable'
-        )
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
       }
-
-
-      videoRef.current.srcObject =
-        stream
-
-
-      await videoRef.current.play()
-
-
       setCameraLoading(false)
-
-
       startDecoding()
-
-
-    } catch (err) {
-
-      console.error(err)
-
-
-      setCameraError(
-        'Camera access denied. Allow camera permission or use USB/manual mode.'
-      )
-
-
+    } catch (err: any) {
+      setCameraError('Camera access denied. Allow camera or switch to USB/Manual mode.')
       setCameraLoading(false)
-
     }
+  }, [])
 
+  const stopCamera = useCallback(() => {
+    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current)
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+  }, [])
 
-  }, [startDecoding])
-
-
-
-
-
+  const startDecoding = useCallback(async () => {
+    try {
+      const { BrowserMultiFormatReader } = await import('@zxing/library')
+      const reader = new BrowserMultiFormatReader()
+      scanIntervalRef.current = setInterval(async () => {
+        if (!videoRef.current) return
+        try {
+          const result = await reader.decodeFromVideoElement(videoRef.current)
+          if (result) {
+            const val = result.getText()
+            setLastScan(val)
+            onScan(val)
+            stopCamera()
+          }
+        } catch { /* no barcode in frame */ }
+      }, 400)
+    } catch {
+      setCameraError('Barcode library unavailable. Use USB scanner or manual entry.')
+    }
+  }, [onScan, stopCamera])
 
   useEffect(() => {
+    if (mode === 'camera') startCamera()
+    else stopCamera()
+    return () => stopCamera()
+  }, [mode])
 
-    if (mode === 'camera') {
-
-      startCamera()
-
-    } else {
-
-      stopCamera()
-
-    }
-
-
-    return () => {
-      stopCamera()
-    }
-
-
-  }, [mode, startCamera, stopCamera])
-
-
-
-
-
-
-
-  function handleManualSubmit(
-    e: React.FormEvent
-  ) {
-
+  function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault()
-
-
-    const value =
-      manualInput.trim()
-
-
-    if (!value) {
-      return
-    }
-
-
-    setLastScan(value)
-
-    onScan(value)
-
+    if (!manualInput.trim()) return
+    setLastScan(manualInput.trim())
+    onScan(manualInput.trim())
     setManualInput('')
-
   }
-
-
-
-
 
   function handleClose() {
-
     stopCamera()
-
     onClose()
-
   }
 
-
-
-
-
-
   return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
 
-    <div className="
-      fixed inset-0
-      bg-black/60
-      z-50
-      flex
-      items-center
-      justify-center
-      p-4
-    ">
-
-
-      <div className="
-        bg-white
-        rounded-2xl
-        w-full
-        max-w-md
-        shadow-2xl
-        overflow-hidden
-      ">
-
-
-        {/* HEADER */}
-
-        <div className="
-          bg-emerald-600
-          text-white
-          px-5
-          py-4
-          flex
-          justify-between
-          items-center
-        ">
-
-
-          <div className="flex gap-2 items-center">
-
-            <Scan />
-
+        {/* Header */}
+        <div className="bg-emerald-600 text-white px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Scan className="w-5 h-5" />
             <div>
-
-              <div className="font-semibold">
-                {title}
-              </div>
-
-              <div className="text-xs text-emerald-100">
-                {instruction}
-              </div>
-
+              <div className="font-semibold">{title}</div>
+              <div className="text-emerald-100 text-xs mt-0.5">{instruction}</div>
             </div>
-
           </div>
-
-
-          <button onClick={handleClose}>
-            <X />
+          <button onClick={handleClose} className="text-emerald-200 hover:text-white p-1 rounded">
+            <X className="w-5 h-5" />
           </button>
-
-
         </div>
 
-
-
-
-
-
-        {/* TABS */}
-
-        <div className="flex border-b">
-
-
+        {/* Mode tabs */}
+        <div className="flex border-b border-gray-200">
           {[
-            {
-              id:'usb',
-              label:'USB Scanner',
-              icon:Scan
-            },
-
-            {
-              id:'camera',
-              label:'Camera',
-              icon:Camera
-            },
-
-            {
-              id:'manual',
-              label:'Manual',
-              icon:Keyboard
-            }
-
-          ].map(tab => (
-
+            { id: 'usb', label: 'USB Scanner', icon: Scan },
+            { id: 'camera', label: 'Camera', icon: Camera },
+            { id: 'manual', label: 'Manual', icon: Keyboard },
+          ].map(m => (
             <button
-
-              key={tab.id}
-
-              onClick={() =>
-                setMode(
-                  tab.id as any
-                )
-              }
-
+              key={m.id}
+              onClick={() => setMode(m.id as any)}
               className={cn(
-                `
-                flex-1
-                py-3
-                flex
-                justify-center
-                gap-2
-                border-b-2
-                `,
-                mode === tab.id
+                'flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 transition-colors',
+                mode === m.id
                   ? 'border-emerald-600 text-emerald-600'
-                  : 'border-transparent text-gray-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
               )}
-
             >
-
-              <tab.icon size={16}/>
-
-              {tab.label}
-
+              <m.icon className="w-4 h-4" />
+              {m.label}
             </button>
-
-
           ))}
-
-
         </div>
 
-
-
-
-
-
-
         <div className="p-5">
-
-
-
-
-
-          {/* CAMERA */}
-
-
-          {mode === 'camera' && (
-
-            <div className="
-              relative
-              rounded-lg
-              overflow-hidden
-              bg-black
-              aspect-video
-            ">
-
-
-              <video
-
-                ref={videoRef}
-
-                autoPlay
-
-                muted
-
-                playsInline
-
-                className="
-                  w-full
-                  h-full
-                  object-cover
-                "
-
-              />
-
-
-
-              {cameraLoading && (
-
-                <div className="
-                  absolute
-                  inset-0
-                  flex
-                  items-center
-                  justify-center
-                ">
-
-                  <Loader2
-                    className="
-                      animate-spin
-                      text-emerald-400
-                    "
-                  />
-
-                </div>
-
-              )}
-
-
-
-
-              <div className="
-                absolute
-                inset-0
-                flex
-                items-center
-                justify-center
-              ">
-
-                <div className="
-                  border-2
-                  border-emerald-400
-                  w-48
-                  h-32
-                  rounded-lg
-                " />
-
-              </div>
-
-
-
-
-              <div className="
-                absolute
-                bottom-2
-                left-0
-                right-0
-                text-center
-                text-white
-                text-xs
-              ">
-
-                Center barcode or QR code in the frame
-
-              </div>
-
-
-
-              {cameraError && (
-
-                <div className="
-                  absolute
-                  bottom-0
-                  bg-red-600
-                  text-white
-                  text-xs
-                  p-2
-                  w-full
-                ">
-
-                  <AlertTriangle
-                    size={14}
-                    className="inline mr-1"
-                  />
-
-                  {cameraError}
-
-                </div>
-
-              )}
-
-
-            </div>
-
-          )}
-
-
-
-
-
-
-
-
-          {/* USB */}
-
-
+          {/* USB Mode */}
           {mode === 'usb' && (
-
-            <div className="
-              text-center
-              space-y-3
-            ">
-
-              <Scan
-                className="
-                  mx-auto
-                  w-12
-                  h-12
-                  text-emerald-400
-                "
-              />
-
-
-              <div className="font-medium">
-
-                Ready for USB/Bluetooth Scanner
-
+            <div className="space-y-4">
+              <div className="scan-prompt">
+                <Scan className="w-12 h-12 text-emerald-400" />
+                <div className="text-gray-700 font-medium">Ready for USB/Bluetooth Scanner</div>
+                <div className="text-gray-500 text-sm">
+                  Point your scanner at the barcode. The scan will be captured automatically.
+                </div>
+                <div className="text-xs text-gray-400 bg-gray-100 rounded px-3 py-2 w-full text-center">
+                  Scanner must be connected via USB or Bluetooth to this device
+                </div>
               </div>
-
-
-
+              {/* Hidden input to capture focus for USB scanner */}
               <input
-
                 ref={inputRef}
-
-                className="
-                  absolute
-                  opacity-0
-                "
-
+                className="opacity-0 h-0 w-0 absolute"
                 readOnly
-
+                tabIndex={0}
               />
-
-
             </div>
-
           )}
 
+          {/* Camera Mode */}
+          {mode === 'camera' && (
+            <div className="space-y-3">
+              {cameraLoading && (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                  <div className="text-sm text-gray-500">Starting camera...</div>
+                </div>
+              )}
+              {cameraError && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  {cameraError}
+                </div>
+              )}
+              {!cameraLoading && !cameraError && (
+                <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                  />
+                  {/* Scan overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="border-2 border-emerald-400 w-48 h-32 rounded-lg opacity-70" />
+                  </div>
+                  <div className="absolute bottom-2 left-0 right-0 text-center text-white text-xs bg-black/40 py-1">
+                    Center barcode or QR code in the frame
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-
-
-
-
-
-
-
-          {/* MANUAL */}
-
-
+          {/* Manual Mode */}
           {mode === 'manual' && (
-
-            <form onSubmit={handleManualSubmit}>
-
-
-              <input
-
-                className="
-                  form-input
-                  w-full
-                "
-
-                value={manualInput}
-
-                onChange={e =>
-                  setManualInput(
-                    e.target.value
-                  )
-                }
-
-                placeholder="Enter barcode"
-
-              />
-
-
-              <button
-                className="
-                  btn
-                  btn-primary
-                  w-full
-                  mt-3
-                "
-              >
-
-                Submit
-
+            <form onSubmit={handleManualSubmit} className="space-y-3">
+              <div>
+                <label className="form-label">Enter barcode / ID manually</label>
+                <input
+                  className="form-input text-lg font-mono"
+                  value={manualInput}
+                  onChange={e => setManualInput(e.target.value)}
+                  placeholder={expectedValue ? `Expected: ${expectedValue}` : 'Scan value or patient ID...'}
+                  autoFocus
+                />
+              </div>
+              <button type="submit" className="btn btn-primary w-full justify-center">
+                <CheckCircle className="w-4 h-4" /> Submit
               </button>
-
-
             </form>
-
           )}
 
-
-
-
-
-
+          {/* Last scan result */}
           {lastScan && (
-
-            <div className="
-              mt-4
-              flex
-              gap-2
-              text-green-700
-            ">
-
-              <CheckCircle />
-
-              <span>
-                {lastScan}
-              </span>
-
+            <div className="scan-success mt-4">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <div>
+                <div className="font-medium text-green-800 text-sm">Scanned</div>
+                <div className="font-mono text-sm text-green-700">{lastScan}</div>
+              </div>
             </div>
-
           )}
 
-
-
-
+          {/* Expected value hint */}
           {expectedValue && (
-
-            <div className="text-xs text-gray-400 mt-3">
-
-              Expected:
-              {' '}
-              {expectedValue}
-
+            <div className="mt-3 text-xs text-gray-400 text-center">
+              Expected value: <span className="font-mono">{expectedValue}</span>
             </div>
-
           )}
-
-
-
         </div>
 
-
-
-
-
-        <div className="p-5">
-
-          <button
-            onClick={handleClose}
-            className="
-              btn
-              btn-secondary
-              w-full
-            "
-          >
-
+        <div className="px-5 pb-5">
+          <button onClick={handleClose} className="btn btn-secondary w-full justify-center">
             Cancel
-
           </button>
-
-
         </div>
-
-
-
       </div>
-
-
     </div>
-
   )
-
 }
