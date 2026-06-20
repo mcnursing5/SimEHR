@@ -3,6 +3,37 @@ import Link from 'next/link'
 import { Activity, BookOpen, CheckCircle, Clock, ArrowRight, AlertCircle } from 'lucide-react'
 import { getCategoryColor, getDifficultyColor } from '@/lib/utils'
 
+interface ScenarioInfo {
+  id: string
+  title: string
+  category: string
+  difficulty: string
+  estimated_duration_minutes: number
+  description: string | null
+}
+
+interface CourseInfo {
+  course_code: string
+  title: string
+}
+
+interface CourseSimulation {
+  id: string
+  encounter_number: string
+  is_active: boolean
+  instructions: string | null
+  course: CourseInfo | null
+  scenario: ScenarioInfo | null
+}
+
+interface StudentSession {
+  id: string
+  status: string
+  started_at: string | null
+  last_active_at: string | null
+  course_simulation_id: string
+}
+
 export default async function StudentDashboard({ profile }: { profile: any }) {
   const supabase = await createClient()
 
@@ -12,7 +43,7 @@ export default async function StudentDashboard({ profile }: { profile: any }) {
     .eq('student_id', profile.id)
     .eq('status', 'active')
 
-  const courseIds = enrollments?.map(e => e.course_id).filter(Boolean) ?? []
+  const courseIds = (enrollments ?? []).map((e: any) => e.course_id).filter(Boolean)
 
   if (courseIds.length === 0) {
     return (
@@ -27,7 +58,7 @@ export default async function StudentDashboard({ profile }: { profile: any }) {
     )
   }
 
-  const { data: allSims } = await supabase
+  const { data: allSimsRaw } = await supabase
     .from('course_simulations')
     .select(`
       id, encounter_number, is_active, instructions,
@@ -39,27 +70,40 @@ export default async function StudentDashboard({ profile }: { profile: any }) {
     .in('course_id', courseIds)
     .eq('is_active', true)
 
-  const simIds = allSims?.map(s => s.id) ?? []
+  // Supabase's generated types can infer nested single-row relations as
+  // arrays in some query shapes; normalize explicitly here.
+  const allSims: CourseSimulation[] = (allSimsRaw ?? []).map((s: any) => ({
+    id: s.id,
+    encounter_number: s.encounter_number,
+    is_active: s.is_active,
+    instructions: s.instructions,
+    course: Array.isArray(s.course) ? (s.course[0] ?? null) : (s.course ?? null),
+    scenario: Array.isArray(s.scenario) ? (s.scenario[0] ?? null) : (s.scenario ?? null),
+  }))
 
-  const { data: mySessions } = simIds.length > 0
+  const simIds = allSims.map(s => s.id)
+
+  const { data: mySessionsRaw } = simIds.length > 0
     ? await supabase
         .from('student_sessions')
         .select('id, status, started_at, last_active_at, course_simulation_id')
         .eq('student_id', profile.id)
         .in('course_simulation_id', simIds)
-    : { data: [] }
+    : { data: [] as StudentSession[] }
 
-  const sessionMap: Record<string, any> = {}
-  mySessions?.forEach(s => { sessionMap[s.course_simulation_id] = s })
+  const mySessions: StudentSession[] = mySessionsRaw ?? []
 
-  const simsWithStatus = (allSims ?? []).map(s => ({
+  const sessionMap: Record<string, StudentSession> = {}
+  mySessions.forEach(s => { sessionMap[s.course_simulation_id] = s })
+
+  const simsWithStatus = allSims.map(s => ({
     ...s,
     mySession: sessionMap[s.id] ?? null,
   }))
 
   const notStarted = simsWithStatus.filter(s => !s.mySession || s.mySession.status === 'not_started')
   const inProgress  = simsWithStatus.filter(s => s.mySession?.status === 'in_progress')
-  const completed   = simsWithStatus.filter(s => ['completed','submitted'].includes(s.mySession?.status))
+  const completed   = simsWithStatus.filter(s => s.mySession && ['completed', 'submitted'].includes(s.mySession.status))
 
   return (
     <div className="space-y-6">
@@ -71,7 +115,7 @@ export default async function StudentDashboard({ profile }: { profile: any }) {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="ehr-card p-4 text-center"><div className="text-2xl font-bold text-emerald-600">{notStarted.length}</div><div className="text-xs text-gray-500 mt-1">Available</div></div>
+        <div className="ehr-card p-4 text-center"><div className="text-2xl font-bold text-blue-600">{notStarted.length}</div><div className="text-xs text-gray-500 mt-1">Available</div></div>
         <div className="ehr-card p-4 text-center"><div className="text-2xl font-bold text-amber-600">{inProgress.length}</div><div className="text-xs text-gray-500 mt-1">In Progress</div></div>
         <div className="ehr-card p-4 text-center"><div className="text-2xl font-bold text-emerald-600">{completed.length}</div><div className="text-xs text-gray-500 mt-1">Completed</div></div>
       </div>
@@ -87,10 +131,10 @@ export default async function StudentDashboard({ profile }: { profile: any }) {
                 <div>
                   <div className="font-semibold text-sm">{s.scenario?.title}</div>
                   <div className="text-xs text-gray-500">{s.course?.course_code} · {s.course?.title}</div>
-                  <div className="text-xs text-emerald-500 font-mono mt-0.5">Encounter: {s.encounter_number}</div>
+                  <div className="text-xs text-blue-500 font-mono mt-0.5">Encounter: {s.encounter_number}</div>
                   <div className="flex gap-2 mt-1">
-                    <span className={`badge text-xs ${getCategoryColor(s.scenario?.category)}`}>{s.scenario?.category}</span>
-                    <span className={`badge text-xs ${getDifficultyColor(s.scenario?.difficulty)}`}>{s.scenario?.difficulty}</span>
+                    <span className={`badge text-xs ${getCategoryColor(s.scenario?.category ?? '')}`}>{s.scenario?.category}</span>
+                    <span className={`badge text-xs ${getDifficultyColor(s.scenario?.difficulty ?? '')}`}>{s.scenario?.difficulty}</span>
                   </div>
                 </div>
                 <div className="btn btn-primary btn-sm">Resume <ArrowRight className="w-3 h-3" /></div>
@@ -102,7 +146,7 @@ export default async function StudentDashboard({ profile }: { profile: any }) {
 
       <div className="ehr-card">
         <div className="ehr-card-header">
-          <h2 className="font-semibold flex items-center gap-2"><Activity className="w-4 h-4 text-emerald-500" />Available Simulations</h2>
+          <h2 className="font-semibold flex items-center gap-2"><Activity className="w-4 h-4 text-blue-500" />Available Simulations</h2>
         </div>
         <div className="divide-y divide-gray-100">
           {notStarted.length === 0 && inProgress.length === 0 && (
@@ -113,15 +157,15 @@ export default async function StudentDashboard({ profile }: { profile: any }) {
             </div>
           )}
           {notStarted.map(s => (
-            <Link key={s.id} href={`/student/chart/${s.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-emerald-50">
+            <Link key={s.id} href={`/student/chart/${s.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-blue-50">
               <div>
                 <div className="font-medium text-sm">{s.scenario?.title}</div>
                 <div className="text-xs text-gray-500">{s.course?.course_code} · {s.course?.title}</div>
-                <div className="text-xs text-emerald-500 font-mono mt-0.5">Encounter: {s.encounter_number}</div>
-                {s.instructions && <div className="text-xs text-emerald-600 italic mt-0.5">"{s.instructions}"</div>}
+                <div className="text-xs text-blue-500 font-mono mt-0.5">Encounter: {s.encounter_number}</div>
+                {s.instructions && <div className="text-xs text-blue-600 italic mt-0.5">"{s.instructions}"</div>}
                 <div className="flex gap-2 mt-1.5">
-                  <span className={`badge text-xs ${getCategoryColor(s.scenario?.category)}`}>{s.scenario?.category}</span>
-                  <span className={`badge text-xs ${getDifficultyColor(s.scenario?.difficulty)}`}>{s.scenario?.difficulty}</span>
+                  <span className={`badge text-xs ${getCategoryColor(s.scenario?.category ?? '')}`}>{s.scenario?.category}</span>
+                  <span className={`badge text-xs ${getDifficultyColor(s.scenario?.difficulty ?? '')}`}>{s.scenario?.difficulty}</span>
                   <span className="badge badge-gray text-xs"><Clock className="w-2.5 h-2.5 mr-1" />{s.scenario?.estimated_duration_minutes} min</span>
                 </div>
               </div>

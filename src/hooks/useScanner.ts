@@ -1,6 +1,22 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+// Minimal local shape for the zxing decode result/error passed into the
+// continuous-scan callback. Avoids depending on named type exports from
+// '@zxing/library' resolving identically across bundlers/環境 - only the
+// methods actually used here are declared.
+interface ZXingResult {
+  getText(): string
+  getBarcodeFormat(): { toString(): string }
+}
+interface ZXingReader {
+  decodeFromVideoDevice(
+    deviceId: string | null,
+    videoSource: string | HTMLVideoElement | null,
+    callbackFn: (result?: ZXingResult, error?: unknown) => void
+  ): Promise<void>
+  reset(): void
+}
 
 export type ScannerMode = 'camera' | 'usb' | 'manual'
 
@@ -49,73 +65,65 @@ export function useUSBScanner(onScan: (result: ScanResult) => void) {
 }
 
 // ── Camera Scanner Hook ────────────────────────────────────
-// Uses the browser's camera via getUserMedia + ZXing WASM
+// Uses the browser's camera via getUserMedia + ZXing WASM.
+//
+// Verified against @zxing/library 0.23.0 type definitions:
+//   decodeFromVideoDevice(deviceId: string | null, videoSource: string | HTMLVideoElement | null,
+//     callbackFn: (result: Result, error?: Exception) => any): Promise<void>
+//   reset(): void   <- stops the continuous decode loop and releases the camera
 
 export function useCameraScanner() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const readerRef = useRef<ZXingReader | null>(null)
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ScanResult | null>(null)
 
-  const startCamera = useCallback(async () => {
-    try {
-      setError(null)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
-      setIsScanning(true)
-      startDecoding()
-    } catch (err) {
-      setError('Camera access denied. Please allow camera access or use a USB scanner.')
-    }
-  }, [])
-
   const stopCamera = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
-      streamRef.current = null
+    try {
+      readerRef.current?.reset()
+    } catch {
+      // reset() can throw if already stopped - safe to ignore
     }
+    readerRef.current = null
     setIsScanning(false)
   }, [])
 
-  const startDecoding = useCallback(async () => {
-    // Dynamically import ZXing to keep bundle size small
+  const startCamera = useCallback(async () => {
     try {
+      setError(null)
+
       const { BrowserMultiFormatReader } = await import('@zxing/library')
-      const codeReader = new BrowserMultiFormatReader()
+      const codeReader = new BrowserMultiFormatReader() as unknown as ZXingReader
+      readerRef.current = codeReader
 
-      intervalRef.current = setInterval(async () => {
-        if (!videoRef.current || !canvasRef.current) return
-        const canvas = canvasRef.current
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
+      if (!videoRef.current) return
 
-        canvas.width = videoRef.current.videoWidth
-        canvas.height = videoRef.current.videoHeight
-        ctx.drawImage(videoRef.current, 0, 0)
+      setIsScanning(true)
 
-        try {
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-          const decoded = await codeReader.decodeFromImageElement(videoRef.current)
-          if (decoded) {
-            setResult({ value: decoded.getText(), format: decoded.getBarcodeFormat().toString(), timestamp: new Date() })
+      // deviceId = null lets the browser pick the default camera.
+      // The callback fires repeatedly (once per attempted frame); `result`
+      // is only populated when a barcode was actually decoded, otherwise
+      // `error` fires (a routine NotFoundException) and should be ignored.
+      await codeReader.decodeFromVideoDevice(
+        null,
+        videoRef.current,
+        (decodeResult?: ZXingResult, decodeError?: unknown) => {
+          if (decodeResult) {
+            setResult({
+              value: decodeResult.getText(),
+              format: decodeResult.getBarcodeFormat().toString(),
+              timestamp: new Date(),
+            })
             stopCamera()
           }
-        } catch {
-          // No barcode found in this frame - continue
+          // decodeError fires continuously for "no barcode in this frame" - ignore it
         }
-      }, 300)
-    } catch {
-      setError('Barcode library failed to load. Please use manual entry or USB scanner.')
+      )
+    } catch (err) {
+      setError('Camera access denied. Please allow camera access or use a USB scanner.')
+      setIsScanning(false)
     }
   }, [stopCamera])
 

@@ -17,6 +17,8 @@ const ORDER_TYPES = ['medication','lab','imaging','nursing','diet','activity','c
 const PRIORITIES = ['routine','urgent','stat']
 const LAB_PANELS = ['CBC','BMP','CMP','ABG','Troponin I','Troponin T','BNP','Lactate','Coagulation Panel (PT/INR/PTT)','Urinalysis','Blood Culture','Lipid Panel','LFTs','Thyroid Panel']
 
+interface Allergy { substance: string; reaction: string; severity: string }
+
 export default function ScenarioBuilder({ facultyId, existingScenario }: { facultyId: string, existingScenario?: any }) {
   const supabase = createClient()
   const router = useRouter()
@@ -30,7 +32,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
     category: existingScenario?.category ?? 'cardiac',
     difficulty: existingScenario?.difficulty ?? 'intermediate',
     estimated_duration_minutes: existingScenario?.estimated_duration_minutes ?? 60,
-    learning_objectives: existingScenario?.learning_objectives?.length ? existingScenario.learning_objectives : [''],
+    learning_objectives: (existingScenario?.learning_objectives?.length ? existingScenario.learning_objectives : ['']) as string[],
     tags: existingScenario?.tags?.join(', ') ?? '',
     is_published: existingScenario?.is_published ?? false,
   })
@@ -47,7 +49,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
     code_status: ep?.code_status ?? 'Full Code', insurance: ep?.insurance ?? '',
     emergency_contact_name: ep?.emergency_contact_name ?? '',
     emergency_contact_phone: ep?.emergency_contact_phone ?? '',
-    allergies: ep?.allergies ?? [] as { substance: string; reaction: string; severity: string }[],
+    allergies: (ep?.allergies ?? []) as Allergy[],
   })
 
   const [medications, setMedications] = useState<any[]>(existingScenario?.medications ?? [])
@@ -58,10 +60,10 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
 
   function addObjective() { setInfo(i => ({ ...i, learning_objectives: [...i.learning_objectives, ''] })) }
   function updateObjective(idx: number, val: string) {
-    setInfo(i => ({ ...i, learning_objectives: i.learning_objectives.map((o, j) => j === idx ? val : o) }))
+    setInfo(i => ({ ...i, learning_objectives: i.learning_objectives.map((o: string, j: number) => j === idx ? val : o) }))
   }
   function removeObjective(idx: number) {
-    setInfo(i => ({ ...i, learning_objectives: i.learning_objectives.filter((_, j) => j !== idx) }))
+    setInfo(i => ({ ...i, learning_objectives: i.learning_objectives.filter((_: string, j: number) => j !== idx) }))
   }
 
   function addAllergy() {
@@ -70,15 +72,15 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
   function updateAllergy(idx: number, field: string, val: string) {
     setPatient(p => ({
       ...p,
-      allergies: p.allergies.map((a, i) => i === idx ? { ...a, [field]: val } : a)
+      allergies: p.allergies.map((a: Allergy, i: number) => i === idx ? { ...a, [field]: val } : a)
     }))
   }
   function removeAllergy(idx: number) {
-    setPatient(p => ({ ...p, allergies: p.allergies.filter((_, i) => i !== idx) }))
+    setPatient(p => ({ ...p, allergies: p.allergies.filter((_: Allergy, i: number) => i !== idx) }))
   }
 
   function addMedication() {
-    setMedications(m => [...m, {
+    setMedications((m: any[]) => [...m, {
       generic_name: '', brand_name: '', drug_class: '', dose: '', route: 'IV',
       frequency: '', indication: '', is_prn: false, special_instructions: '',
       barcode_value: `MED-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
@@ -86,42 +88,42 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
     }])
   }
   function updateMed(idx: number, field: string, val: any) {
-    setMedications(m => m.map((med, i) => i === idx ? { ...med, [field]: val } : med))
+    setMedications((m: any[]) => m.map((med: any, i: number) => i === idx ? { ...med, [field]: val } : med))
   }
-  function removeMed(idx: number) { setMedications(m => m.filter((_, i) => i !== idx)) }
+  function removeMed(idx: number) { setMedications((m: any[]) => m.filter((_: any, i: number) => i !== idx)) }
 
   function addLabPanel() {
-    setLabResults(l => [...l, {
+    setLabResults((l: any[]) => [...l, {
       panel_name: '', collected_at: new Date().toISOString(), resulted_at: new Date().toISOString(),
       components: [{ name: '', value: '', unit: '', reference_low: '', reference_high: '', is_critical: false, flag: '' }]
     }])
   }
   function updateLab(idx: number, field: string, val: any) {
-    setLabResults(l => l.map((lr, i) => i === idx ? { ...lr, [field]: val } : lr))
+    setLabResults((l: any[]) => l.map((lr: any, i: number) => i === idx ? { ...lr, [field]: val } : lr))
   }
   function addComponent(labIdx: number) {
-    setLabResults(l => l.map((lr, i) => i === labIdx
+    setLabResults((l: any[]) => l.map((lr: any, i: number) => i === labIdx
       ? { ...lr, components: [...lr.components, { name: '', value: '', unit: '', reference_low: '', reference_high: '', is_critical: false, flag: '' }] }
       : lr))
   }
   function updateComponent(labIdx: number, compIdx: number, field: string, val: any) {
-    setLabResults(l => l.map((lr, i) => i === labIdx
+    setLabResults((l: any[]) => l.map((lr: any, i: number) => i === labIdx
       ? { ...lr, components: lr.components.map((c: any, j: number) => j === compIdx ? { ...c, [field]: val } : c) }
       : lr))
   }
-  function removeLab(idx: number) { setLabResults(l => l.filter((_, i) => i !== idx)) }
+  function removeLab(idx: number) { setLabResults((l: any[]) => l.filter((_: any, i: number) => i !== idx)) }
 
   function addOrder() {
-    setOrders(o => [...o, {
+    setOrders((o: any[]) => [...o, {
       order_type: 'nursing', description: '', details: '', priority: 'routine',
       ordered_by: '', frequency: '', duration: '', special_instructions: '',
       ordered_at: new Date().toISOString(),
     }])
   }
   function updateOrder(idx: number, field: string, val: any) {
-    setOrders(o => o.map((ord, i) => i === idx ? { ...ord, [field]: val } : ord))
+    setOrders((o: any[]) => o.map((ord: any, i: number) => i === idx ? { ...ord, [field]: val } : ord))
   }
-  function removeOrder(idx: number) { setOrders(o => o.filter((_, i) => i !== idx)) }
+  function removeOrder(idx: number) { setOrders((o: any[]) => o.filter((_: any, i: number) => i !== idx)) }
 
   async function handleSave(publish: boolean) {
     setSaving(true)
@@ -165,7 +167,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
             insurance: patient.insurance || null,
             emergency_contact_name: patient.emergency_contact_name || null,
             emergency_contact_phone: patient.emergency_contact_phone || null,
-            allergies: patient.allergies.filter((a: any) => a.substance).map((a: any, i: number) => ({ ...a, id: `a${i+1}` })),
+            allergies: patient.allergies.filter((a: Allergy) => a.substance).map((a: Allergy, i: number) => ({ ...a, id: `a${i+1}` })),
           }
           if (existingScenario.patient) {
             await supabase.from('patients').update(patientData).eq('scenario_id', scenarioId)
@@ -231,7 +233,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
             insurance: patient.insurance || null,
             emergency_contact_name: patient.emergency_contact_name || null,
             emergency_contact_phone: patient.emergency_contact_phone || null,
-            allergies: patient.allergies.filter((a: any) => a.substance).map((a: any, i: number) => ({ ...a, id: `a${i+1}` })),
+            allergies: patient.allergies.filter((a: Allergy) => a.substance).map((a: Allergy, i: number) => ({ ...a, id: `a${i+1}` })),
           })
           if (pErr) throw new Error('Patient: ' + pErr.message)
         }
@@ -340,7 +342,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
             </div>
             <div>
               <label className="form-label">Learning Objectives</label>
-              {info.learning_objectives.map((obj, i) => (
+              {info.learning_objectives.map((obj: string, i: number) => (
                 <div key={i} className="flex gap-2 mb-2">
                   <input className="form-input flex-1" placeholder={`Objective ${i+1}...`}
                     value={obj} onChange={e => updateObjective(i, e.target.value)} />
@@ -394,7 +396,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
                 <label className="form-label mb-0">Allergies</label>
                 <button onClick={addAllergy} className="btn btn-secondary btn-sm"><Plus className="w-3.5 h-3.5" /> Add</button>
               </div>
-              {patient.allergies.map((a, i) => (
+              {patient.allergies.map((a: Allergy, i: number) => (
                 <div key={i} className="grid grid-cols-4 gap-2 mb-2">
                   <input className="form-input" placeholder="Substance" value={a.substance} onChange={e => updateAllergy(i, 'substance', e.target.value)} />
                   <input className="form-input" placeholder="Reaction" value={a.reaction} onChange={e => updateAllergy(i, 'reaction', e.target.value)} />
@@ -420,7 +422,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
           {medications.length === 0 && (
             <div className="ehr-card p-8 text-center text-gray-400">No medications yet. Click "Add Medication" to add one.</div>
           )}
-          {medications.map((med, i) => (
+          {medications.map((med: any, i: number) => (
             <div key={i} className="ehr-card">
               <div className="ehr-card-header">
                 <span className="font-medium text-sm">Medication {i+1}</span>
@@ -456,7 +458,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
           {labResults.length === 0 && (
             <div className="ehr-card p-8 text-center text-gray-400">No labs yet. Click "Add Lab Panel" to add one.</div>
           )}
-          {labResults.map((lr, i) => (
+          {labResults.map((lr: any, i: number) => (
             <div key={i} className="ehr-card">
               <div className="ehr-card-header">
                 <span className="font-medium text-sm">Lab Panel {i+1}</span>
@@ -512,7 +514,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
                             <input type="checkbox" checked={comp.is_critical} onChange={e => updateComponent(i, j, 'is_critical', e.target.checked)} />
                           </td>
                           <td className="px-1">
-                            <button onClick={() => setLabResults(l => l.map((lr2, li) => li === i ? {...lr2, components: lr2.components.filter((_: any, ci: number) => ci !== j)} : lr2))} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
+                            <button onClick={() => setLabResults((l: any[]) => l.map((lr2: any, li: number) => li === i ? {...lr2, components: lr2.components.filter((_: any, ci: number) => ci !== j)} : lr2))} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
                           </td>
                         </tr>
                       ))}
@@ -535,7 +537,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
           {orders.length === 0 && (
             <div className="ehr-card p-8 text-center text-gray-400">No orders yet. Click "Add Order" to add one.</div>
           )}
-          {orders.map((ord, i) => (
+          {orders.map((ord: any, i: number) => (
             <div key={i} className="ehr-card">
               <div className="ehr-card-header">
                 <span className="font-medium text-sm">Order {i+1}</span>
@@ -567,9 +569,9 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
               <div><span className="text-gray-500">Duration:</span> <span className="font-medium">{info.estimated_duration_minutes} min</span></div>
               <div><span className="text-gray-500">Patient:</span> <span className="font-medium">{patient.last_name}, {patient.first_name}</span></div>
               <div><span className="text-gray-500">Diagnosis:</span> <span className="font-medium">{patient.admitting_diagnosis}</span></div>
-              <div><span className="text-gray-500">Medications:</span> <span className="font-medium">{medications.filter(m => m.generic_name).length}</span></div>
-              <div><span className="text-gray-500">Lab Panels:</span> <span className="font-medium">{labResults.filter(l => l.panel_name).length}</span></div>
-              <div><span className="text-gray-500">Orders:</span> <span className="font-medium">{orders.filter(o => o.description).length}</span></div>
+              <div><span className="text-gray-500">Medications:</span> <span className="font-medium">{medications.filter((m: any) => m.generic_name).length}</span></div>
+              <div><span className="text-gray-500">Lab Panels:</span> <span className="font-medium">{labResults.filter((l: any) => l.panel_name).length}</span></div>
+              <div><span className="text-gray-500">Orders:</span> <span className="font-medium">{orders.filter((o: any) => o.description).length}</span></div>
               <div><span className="text-gray-500">Objectives:</span> <span className="font-medium">{info.learning_objectives.filter(Boolean).length}</span></div>
             </div>
             <div className="flex gap-3 pt-4 border-t border-gray-100">
