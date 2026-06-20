@@ -1,7 +1,16 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Scan, X, Camera, Keyboard, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react'
+import {
+  Scan,
+  X,
+  Camera,
+  Keyboard,
+  CheckCircle,
+  AlertTriangle,
+  Loader2
+} from 'lucide-react'
+import { Result, BrowserMultiFormatReader } from '@zxing/library'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -20,7 +29,9 @@ export default function BarcodeScanner({
   expectedValue
 }: Props) {
 
-  const [mode, setMode] = useState<'usb' | 'camera' | 'manual'>('usb')
+  const [mode, setMode] =
+    useState<'usb' | 'camera' | 'manual'>('usb')
+
   const [manualInput, setManualInput] = useState('')
   const [cameraLoading, setCameraLoading] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
@@ -28,7 +39,7 @@ export default function BarcodeScanner({
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const readerRef = useRef<any>(null)
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -36,20 +47,25 @@ export default function BarcodeScanner({
   const usbLastKey = useRef(0)
 
 
-  // -------------------------
+  // ---------------------------
   // USB Scanner
-  // -------------------------
+  // ---------------------------
+
   useEffect(() => {
+
     if (mode === 'usb' && inputRef.current) {
       inputRef.current.focus()
     }
+
   }, [mode])
 
 
   useEffect(() => {
+
     if (mode !== 'usb') return
 
-    function handleKey(e: KeyboardEvent) {
+
+    const handleKey = (e: KeyboardEvent) => {
 
       const now = Date.now()
 
@@ -76,34 +92,103 @@ export default function BarcodeScanner({
         usbBuffer.current += e.key
 
       }
+
     }
 
 
-    window.addEventListener('keydown', handleKey)
+    window.addEventListener(
+      'keydown',
+      handleKey
+    )
+
 
     return () => {
-      window.removeEventListener('keydown', handleKey)
+      window.removeEventListener(
+        'keydown',
+        handleKey
+      )
     }
+
 
   }, [mode, onScan])
 
 
 
-  // -------------------------
+
+  // ---------------------------
   // Camera
-  // -------------------------
+  // ---------------------------
+
   const stopCamera = useCallback(() => {
 
     readerRef.current?.reset()
     readerRef.current = null
 
+
     streamRef.current
       ?.getTracks()
       .forEach(track => track.stop())
 
+
     streamRef.current = null
 
   }, [])
+
+
+
+  const startDecoding = useCallback(async () => {
+
+    try {
+
+      if (!videoRef.current) {
+        return
+      }
+
+
+      const reader =
+        new BrowserMultiFormatReader()
+
+
+      readerRef.current = reader
+
+
+      reader.decodeFromVideoElement(
+        videoRef.current,
+        (result: Result | null) => {
+
+          if (!result) {
+            return
+          }
+
+
+          const value =
+            result.getText()
+
+
+          setLastScan(value)
+
+          onScan(value)
+
+          stopCamera()
+
+        }
+      )
+
+
+    } catch (err) {
+
+      console.error(err)
+
+      setCameraError(
+        'Barcode scanner unavailable.'
+      )
+
+    }
+
+
+  }, [onScan, stopCamera])
+
+
 
 
 
@@ -117,31 +202,41 @@ export default function BarcodeScanner({
 
       const stream =
         await navigator.mediaDevices.getUserMedia({
+
           video: {
             facingMode: {
               ideal: 'environment'
             },
+
             width: {
               ideal: 1280
             },
+
             height: {
               ideal: 720
             }
+
           },
+
           audio: false
+
         })
 
 
       streamRef.current = stream
 
 
-      // wait until video element exists
+
       if (!videoRef.current) {
-        throw new Error('Video element missing')
+        throw new Error(
+          'Video element unavailable'
+        )
       }
 
 
-      videoRef.current.srcObject = stream
+      videoRef.current.srcObject =
+        stream
+
 
       await videoRef.current.play()
 
@@ -156,61 +251,21 @@ export default function BarcodeScanner({
 
       console.error(err)
 
+
       setCameraError(
-        'Camera access denied or unavailable. Allow camera permission or use USB/manual mode.'
+        'Camera access denied. Allow camera permission or use USB/manual mode.'
       )
+
 
       setCameraLoading(false)
+
     }
 
 
-  }, [])
+  }, [startDecoding])
 
 
 
-  const startDecoding = useCallback(async () => {
-
-    try {
-
-      const {
-        BrowserMultiFormatReader
-      } = await import('@zxing/library')
-
-
-      const reader = new BrowserMultiFormatReader()
-
-      readerRef.current = reader
-
-
-      reader.decodeFromVideoElement(
-        videoRef.current!,
-        result => {
-
-          if (result) {
-
-            const value = result.getText()
-
-            setLastScan(value)
-
-            onScan(value)
-
-            stopCamera()
-          }
-
-        }
-      )
-
-
-    } catch (err) {
-
-      console.error(err)
-
-      setCameraError(
-        'Barcode scanner unavailable. Use USB/manual mode.'
-      )
-    }
-
-  }, [onScan, stopCamera])
 
 
 
@@ -231,7 +286,11 @@ export default function BarcodeScanner({
       stopCamera()
     }
 
+
   }, [mode, startCamera, stopCamera])
+
+
+
 
 
 
@@ -242,9 +301,14 @@ export default function BarcodeScanner({
 
     e.preventDefault()
 
-    const value = manualInput.trim()
 
-    if (!value) return
+    const value =
+      manualInput.trim()
+
+
+    if (!value) {
+      return
+    }
 
 
     setLastScan(value)
@@ -252,7 +316,10 @@ export default function BarcodeScanner({
     onScan(value)
 
     setManualInput('')
+
   }
+
+
 
 
 
@@ -266,20 +333,48 @@ export default function BarcodeScanner({
 
 
 
+
+
+
   return (
 
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="
+      fixed inset-0
+      bg-black/60
+      z-50
+      flex
+      items-center
+      justify-center
+      p-4
+    ">
 
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+
+      <div className="
+        bg-white
+        rounded-2xl
+        w-full
+        max-w-md
+        shadow-2xl
+        overflow-hidden
+      ">
 
 
-        {/* Header */}
+        {/* HEADER */}
 
-        <div className="bg-emerald-600 text-white px-5 py-4 flex items-center justify-between">
+        <div className="
+          bg-emerald-600
+          text-white
+          px-5
+          py-4
+          flex
+          justify-between
+          items-center
+        ">
 
-          <div className="flex items-center gap-2">
 
-            <Scan className="w-5 h-5" />
+          <div className="flex gap-2 items-center">
+
+            <Scan />
 
             <div>
 
@@ -287,7 +382,7 @@ export default function BarcodeScanner({
                 {title}
               </div>
 
-              <div className="text-emerald-100 text-xs mt-0.5">
+              <div className="text-xs text-emerald-100">
                 {instruction}
               </div>
 
@@ -297,46 +392,83 @@ export default function BarcodeScanner({
 
 
           <button onClick={handleClose}>
-            <X className="w-5 h-5" />
+            <X />
           </button>
+
 
         </div>
 
 
 
-        {/* Tabs */}
+
+
+
+        {/* TABS */}
 
         <div className="flex border-b">
 
+
           {[
-            { id:'usb', label:'USB Scanner', icon:Scan },
-            { id:'camera', label:'Camera', icon:Camera },
-            { id:'manual', label:'Manual', icon:Keyboard }
+            {
+              id:'usb',
+              label:'USB Scanner',
+              icon:Scan
+            },
+
+            {
+              id:'camera',
+              label:'Camera',
+              icon:Camera
+            },
+
+            {
+              id:'manual',
+              label:'Manual',
+              icon:Keyboard
+            }
 
           ].map(tab => (
 
             <button
+
               key={tab.id}
+
               onClick={() =>
-                setMode(tab.id as any)
+                setMode(
+                  tab.id as any
+                )
               }
+
               className={cn(
-                'flex-1 flex justify-center gap-2 py-3 border-b-2',
+                `
+                flex-1
+                py-3
+                flex
+                justify-center
+                gap-2
+                border-b-2
+                `,
                 mode === tab.id
                   ? 'border-emerald-600 text-emerald-600'
                   : 'border-transparent text-gray-500'
               )}
+
             >
 
-              <tab.icon className="w-4 h-4"/>
+              <tab.icon size={16}/>
 
               {tab.label}
 
             </button>
 
+
           ))}
 
+
         </div>
+
+
+
 
 
 
@@ -344,11 +476,21 @@ export default function BarcodeScanner({
         <div className="p-5">
 
 
+
+
+
           {/* CAMERA */}
+
 
           {mode === 'camera' && (
 
-            <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+            <div className="
+              relative
+              rounded-lg
+              overflow-hidden
+              bg-black
+              aspect-video
+            ">
 
 
               <video
@@ -361,16 +503,32 @@ export default function BarcodeScanner({
 
                 playsInline
 
-                className="w-full h-full object-cover"
+                className="
+                  w-full
+                  h-full
+                  object-cover
+                "
 
               />
 
 
+
               {cameraLoading && (
 
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="
+                  absolute
+                  inset-0
+                  flex
+                  items-center
+                  justify-center
+                ">
 
-                  <Loader2 className="animate-spin text-emerald-400"/>
+                  <Loader2
+                    className="
+                      animate-spin
+                      text-emerald-400
+                    "
+                  />
 
                 </div>
 
@@ -378,24 +536,60 @@ export default function BarcodeScanner({
 
 
 
-              <div className="absolute inset-0 flex items-center justify-center">
 
-                <div className="border-2 border-emerald-400 w-48 h-32 rounded-lg"/>
+              <div className="
+                absolute
+                inset-0
+                flex
+                items-center
+                justify-center
+              ">
+
+                <div className="
+                  border-2
+                  border-emerald-400
+                  w-48
+                  h-32
+                  rounded-lg
+                " />
 
               </div>
 
 
 
-              <div className="absolute bottom-2 left-0 right-0 text-center text-white text-xs">
 
-                Center barcode or QR code in frame
+              <div className="
+                absolute
+                bottom-2
+                left-0
+                right-0
+                text-center
+                text-white
+                text-xs
+              ">
+
+                Center barcode or QR code in the frame
 
               </div>
+
 
 
               {cameraError && (
 
-                <div className="absolute bottom-0 bg-red-600 text-white text-xs p-2 w-full">
+                <div className="
+                  absolute
+                  bottom-0
+                  bg-red-600
+                  text-white
+                  text-xs
+                  p-2
+                  w-full
+                ">
+
+                  <AlertTriangle
+                    size={14}
+                    className="inline mr-1"
+                  />
 
                   {cameraError}
 
@@ -413,24 +607,49 @@ export default function BarcodeScanner({
 
 
 
+
+
           {/* USB */}
+
 
           {mode === 'usb' && (
 
-            <div className="text-center space-y-3">
+            <div className="
+              text-center
+              space-y-3
+            ">
 
-              <Scan className="mx-auto w-12 h-12 text-emerald-400"/>
+              <Scan
+                className="
+                  mx-auto
+                  w-12
+                  h-12
+                  text-emerald-400
+                "
+              />
+
 
               <div className="font-medium">
+
                 Ready for USB/Bluetooth Scanner
+
               </div>
 
 
+
               <input
+
                 ref={inputRef}
-                className="absolute opacity-0"
+
+                className="
+                  absolute
+                  opacity-0
+                "
+
                 readOnly
+
               />
+
 
             </div>
 
@@ -441,20 +660,30 @@ export default function BarcodeScanner({
 
 
 
+
+
+
           {/* MANUAL */}
+
 
           {mode === 'manual' && (
 
             <form onSubmit={handleManualSubmit}>
 
+
               <input
 
-                className="form-input w-full"
+                className="
+                  form-input
+                  w-full
+                "
 
                 value={manualInput}
 
                 onChange={e =>
-                  setManualInput(e.target.value)
+                  setManualInput(
+                    e.target.value
+                  )
                 }
 
                 placeholder="Enter barcode"
@@ -462,11 +691,19 @@ export default function BarcodeScanner({
               />
 
 
-              <button className="btn btn-primary w-full mt-3">
+              <button
+                className="
+                  btn
+                  btn-primary
+                  w-full
+                  mt-3
+                "
+              >
 
                 Submit
 
               </button>
+
 
             </form>
 
@@ -476,20 +713,46 @@ export default function BarcodeScanner({
 
 
 
+
           {lastScan && (
 
-            <div className="mt-4 flex gap-2 text-green-700">
+            <div className="
+              mt-4
+              flex
+              gap-2
+              text-green-700
+            ">
 
-              <CheckCircle/>
+              <CheckCircle />
 
-              <span>{lastScan}</span>
+              <span>
+                {lastScan}
+              </span>
 
             </div>
 
           )}
 
 
+
+
+          {expectedValue && (
+
+            <div className="text-xs text-gray-400 mt-3">
+
+              Expected:
+              {' '}
+              {expectedValue}
+
+            </div>
+
+          )}
+
+
+
         </div>
+
+
 
 
 
@@ -497,17 +760,27 @@ export default function BarcodeScanner({
 
           <button
             onClick={handleClose}
-            className="btn btn-secondary w-full"
+            className="
+              btn
+              btn-secondary
+              w-full
+            "
           >
+
             Cancel
+
           </button>
+
 
         </div>
 
 
+
       </div>
+
 
     </div>
 
   )
+
 }
