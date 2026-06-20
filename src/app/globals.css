@@ -20,7 +20,6 @@
   --brand-gray-900: #111827;
 
   /* Sidebar */
-  --sidebar-width: 240px;
   --sidebar-bg: #1b2b22;
   --sidebar-text: #cbd5cb;
   --sidebar-active: #059669;
@@ -105,10 +104,14 @@ body {
 }
 
 /* ── Sidebar ──────────────────────────────────────────── */
+/* Width is controlled by Tailwind utility classes directly in AppShell.tsx
+   (w-60 on mobile drawer + lg:static lg:flex-shrink-0 on desktop), so no
+   fixed width or media-query override is set here anymore. This lets the
+   sidebar behave as a slide-over drawer on mobile and an in-flow column
+   on desktop (≥1024px / Tailwind's `lg` breakpoint). */
 .sidebar {
   background-color: var(--sidebar-bg);
-  width: var(--sidebar-width);
-  @apply h-full flex flex-col flex-shrink-0;
+  @apply h-full flex flex-col;
 }
 
 .sidebar-item {
@@ -236,9 +239,4 @@ body {
 @media print {
   .no-print { display: none !important; }
   body { background: white; }
-}
-
-/* ── Responsive ───────────────────────────────────────── */
-@media (max-width: 768px) {
-  :root { --sidebar-width: 0px; }
 }

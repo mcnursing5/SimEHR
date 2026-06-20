@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -12,7 +12,27 @@ export default function AppShell({ profile, children }: { profile: any; children
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // Sidebar starts closed; on desktop widths we open it automatically once
+  // mounted so it doesn't flash open on mobile first.
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const apply = () => {
+      setIsDesktop(mq.matches)
+      setSidebarOpen(mq.matches) // open by default on desktop, closed on mobile
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+
+  // Close the mobile drawer automatically whenever the route changes
+  useEffect(() => {
+    if (!isDesktop) setSidebarOpen(false)
+  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const role = profile?.role
 
@@ -85,24 +105,42 @@ export default function AppShell({ profile, children }: { profile: any; children
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
-      {/* Sidebar */}
+      {/* Mobile backdrop — tapping it closes the drawer */}
+      {sidebarOpen && !isDesktop && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — fixed/overlay drawer on mobile, in-flow column on desktop */}
       <aside
         className={cn(
-          'sidebar transition-all duration-200 flex-shrink-0 overflow-y-auto flex flex-col',
-          sidebarOpen ? 'w-60' : 'w-0 overflow-hidden'
+          'sidebar flex flex-col overflow-y-auto transition-transform duration-200 z-40',
+          'fixed inset-y-0 left-0 w-60 lg:static lg:flex-shrink-0',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+          !isDesktop && !sidebarOpen && 'lg:w-60'
         )}
+        style={isDesktop ? undefined : { width: '15rem' }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2 px-4 py-4 border-b border-slate-700">
+        <div className="flex items-center gap-2 px-4 py-4 border-b border-slate-700 flex-shrink-0">
           <img src="/logo.png" alt="Streakk" className="h-6 w-auto flex-shrink-0" />
           <div className="min-w-0">
             <div className="text-white font-bold text-sm leading-none">EHR</div>
             <div className="text-slate-400 text-xs mt-0.5">Nursing Simulation</div>
           </div>
+          {/* Close button, mobile only */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="ml-auto text-slate-400 hover:text-white p-1 lg:hidden"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* User info */}
-        <div className="px-4 py-3 border-b border-slate-700">
+        <div className="px-4 py-3 border-b border-slate-700 flex-shrink-0">
           <div className="min-w-0">
             <div className="text-white text-sm font-medium truncate">
               {profile?.first_name} {profile?.last_name}
@@ -123,9 +161,9 @@ export default function AppShell({ profile, children }: { profile: any; children
             }
 
             const hasQuery = item.href.includes('?')
-            const basePath = item.href.split('?')
+            const basePath = item.href.split('?')[0]
             const isActive = hasQuery
-              ? false // query-string nav items (e.g. "New Course") are action shortcuts, never highlighted
+              ? false
               : pathname === item.href || (basePath !== '/dashboard' && pathname.startsWith(basePath))
 
             return (
@@ -138,7 +176,7 @@ export default function AppShell({ profile, children }: { profile: any; children
         </nav>
 
         {/* Logout */}
-        <div className="p-4 border-t border-slate-700">
+        <div className="p-4 border-t border-slate-700 flex-shrink-0">
           <button onClick={handleLogout} className="sidebar-item w-full rounded-md hover:bg-red-900/50 text-red-400 hover:text-red-300">
             Sign Out
           </button>
@@ -149,12 +187,12 @@ export default function AppShell({ profile, children }: { profile: any; children
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
         <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4 flex-shrink-0">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-gray-500 hover:text-gray-700 p-1 rounded">
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-gray-500 hover:text-gray-700 p-1 rounded flex-shrink-0">
+            {sidebarOpen && isDesktop ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          {/* Breadcrumb — replace UUIDs with friendly labels */}
-          <div className="text-sm text-gray-500 hidden sm:flex items-center gap-1">
+          {/* Breadcrumb — replace UUIDs with friendly labels; hidden on very small screens */}
+          <div className="text-sm text-gray-500 hidden sm:flex items-center gap-1 overflow-x-auto">
             {pathname
               .split('/')
               .filter(Boolean)
@@ -173,7 +211,7 @@ export default function AppShell({ profile, children }: { profile: any; children
                   : seg.replace(/-/g, ' ')
 
                 return (
-                  <span key={i} className="flex items-center gap-1">
+                  <span key={i} className="flex items-center gap-1 whitespace-nowrap">
                     <span className="capitalize">{label}</span>
                     {i < arr.length - 1 && <span className="text-gray-300">/</span>}
                   </span>
@@ -181,8 +219,8 @@ export default function AppShell({ profile, children }: { profile: any; children
               })}
           </div>
 
-          <div className="ml-auto flex items-center gap-3">
-            <span className={cn('badge text-xs flex items-center gap-1', rc.badge)}>
+          <div className="ml-auto flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <span className={cn('badge text-xs hidden sm:flex items-center gap-1', rc.badge)}>
               {role === 'admin' && <ShieldCheck className="w-3 h-3" />}
               {rc.label}
             </span>
@@ -192,7 +230,7 @@ export default function AppShell({ profile, children }: { profile: any; children
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
     </div>
   )
