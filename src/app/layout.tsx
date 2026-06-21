@@ -6,7 +6,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Streakk — Nursing Simulation EHR',
+  title: 'Streakk — Medical Simulation EHR',
   description: 'Electronic Health Record System for Nursing Education Simulation',
   manifest: '/manifest.json',
   icons: {

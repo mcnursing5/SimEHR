@@ -1,5 +1,5 @@
 -- ============================================================
--- NURSING SIMULATION EHR - COMPLETE DATABASE SCHEMA
+-- MEDICAL SIMULATION EHR - COMPLETE DATABASE SCHEMA
 -- Run this in Supabase SQL Editor
 -- ============================================================
 

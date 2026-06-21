@@ -1,5 +1,5 @@
 # SimEHR — Complete Implementation Guide
-## Nursing Simulation Electronic Health Record System
+## Medical Simulation Electronic Health Record System
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## 1. System Overview
 
-SimEHR is a full-featured nursing simulation EHR system built on:
+SimEHR is a full-featured Medical simulation EHR system built on:
 - **Next.js 14** (React framework)
 - **Supabase** (PostgreSQL database, authentication, row-level security)
 - **Vercel** (hosting — free tier)

@@ -1,7 +1,7 @@
 {
-  "name": "Streakk EHR — Nursing Simulation",
+  "name": "Streakk EHR — Medical Simulation",
   "short_name": "EHR",
-  "description": "Nursing simulation electronic health record for clinical skills training",
+  "description": "Medical simulation electronic health record for clinical skills training",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#1b2b22",

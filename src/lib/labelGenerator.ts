@@ -268,7 +268,7 @@ async function generateChartCover(
   doc.text('SimEHR', 0.4, 0.5)
   doc.setFontSize(12)
   doc.setFont('helvetica', 'normal')
-  doc.text('Nursing Simulation Electronic Health Record', 0.4, 0.78)
+  doc.text('Medical Simulation Electronic Health Record', 0.4, 0.78)
 
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
@@ -365,7 +365,7 @@ async function generateChartCover(
 
   doc.setFontSize(7)
   doc.setTextColor(150, 150, 150)
-  doc.text(`SimEHR Nursing Simulation • Generated: ${format(new Date(), 'MM/dd/yyyy HH:mm')} • FOR SIMULATION USE ONLY`, 0.4, 10.65)
+  doc.text(`SimEHR Medical Simulation • Generated: ${format(new Date(), 'MM/dd/yyyy HH:mm')} • FOR SIMULATION USE ONLY`, 0.4, 10.65)
 
   doc.save(`chart_cover_${patient.mrn}.pdf`)
 }

@@ -55,7 +55,7 @@ export default function LoginPage() {
             <Activity className="w-9 h-9 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">SimEHR</h1>
-          <p className="text-emerald-300 mt-1 text-sm">Nursing Simulation Electronic Health Record</p>
+          <p className="text-emerald-300 mt-1 text-sm">Medical Simulation Electronic Health Record</p>
         </div>
 
         {/* Card */}

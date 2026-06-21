@@ -128,7 +128,7 @@ export default function AppShell({ profile, children }: { profile: any; children
           <img src="/logo.png" alt="Streakk" className="h-6 w-auto flex-shrink-0" />
           <div className="min-w-0">
             <div className="text-white font-bold text-sm leading-none">EHR</div>
-            <div className="text-slate-400 text-xs mt-0.5">Nursing Simulation</div>
+            <div className="text-slate-400 text-xs mt-0.5">Medical Simulation</div>
           </div>
           {/* Close button, mobile only */}
           <button

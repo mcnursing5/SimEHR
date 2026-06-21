@@ -91,7 +91,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 flex-wrap">
             <img src="/logo.png" alt="Streakk" className="h-7 sm:h-10 w-auto flex-shrink-0" />
             <h1 className="text-sm sm:text-lg text-blue-200 leading-tight">
-              Nursing Simulation <span className="text-lg sm:text-2xl font-bold text-white">EHR</span>
+              Medical Simulation <span className="text-lg sm:text-2xl font-bold text-white">EHR</span>
             </h1>
           </div>
         </div>
