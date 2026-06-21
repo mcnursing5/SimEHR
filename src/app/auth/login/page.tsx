@@ -87,10 +87,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <img src="/logo.png" alt="Streakk" className="h-10 w-auto" />
-            <h1 className="text-lg text-blue-200 whitespace-nowrap">Nursing Simulation <span className="text-2xl font-bold text-white">EHR</span></h1>
+        <div className="text-center mb-8 px-2">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 flex-wrap">
+            <img src="/logo.png" alt="Streakk" className="h-7 sm:h-10 w-auto flex-shrink-0" />
+            <h1 className="text-sm sm:text-lg text-blue-200 leading-tight">
+              Nursing Simulation <span className="text-lg sm:text-2xl font-bold text-white">EHR</span>
+            </h1>
           </div>
         </div>
 
