@@ -12,6 +12,24 @@ interface Props {
   expectedValue?: string
 }
 
+// Minimal local shape for the zxing decode result passed into the
+// continuous-scan callback — verified against @zxing/library 0.23.0's
+// actual .d.ts files. decodeFromVideoDevice's callback receives only
+// (result?, error?) — no third "controls" argument — and the reader
+// itself exposes .reset() to stop the camera/decode loop.
+interface ZXingResult {
+  getText(): string
+  getBarcodeFormat(): { toString(): string }
+}
+interface ZXingReader {
+  decodeFromVideoDevice(
+    deviceId: string | null,
+    videoSource: string | HTMLVideoElement | null,
+    callbackFn: (result?: ZXingResult, error?: unknown) => void
+  ): Promise<void>
+  reset(): void
+}
+
 export default function BarcodeScanner({ title, instruction, onScan, onClose, expectedValue }: Props) {
   const [mode, setMode] = useState<'usb' | 'camera' | 'manual'>('usb')
   const [manualInput, setManualInput] = useState('')
@@ -19,8 +37,7 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [lastScan, setLastScan] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const readerRef = useRef<ZXingReader | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // USB scanner buffer
@@ -59,51 +76,70 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
     return () => window.removeEventListener('keydown', handleKey)
   }, [mode, onScan])
 
-  // Camera setup
+  const stopCamera = useCallback(() => {
+    try {
+      readerRef.current?.reset()
+    } catch {
+      // reset() can throw if already stopped - safe to ignore
+    }
+    readerRef.current = null
+  }, [])
+
+  // Camera setup — uses zxing's own decodeFromVideoDevice continuous-scan
+  // helper, which internally calls getUserMedia AND attaches the stream to
+  // the <video> element for us, then keeps decoding frames until reset().
+  // This avoids manually managing srcObject/play() timing, which is the
+  // most common cause of a black box with no visible video on mobile
+  // browsers (the stream technically "succeeds" but never paints a frame
+  // because playback wasn't properly awaited/ready).
   const startCamera = useCallback(async () => {
     setCameraLoading(true)
     setCameraError(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera not supported on this browser. Use USB scanner or manual entry.')
       setCameraLoading(false)
-      startDecoding()
-    } catch (err: any) {
-      setCameraError('Camera access denied. Allow camera or switch to USB/Manual mode.')
-      setCameraLoading(false)
+      return
     }
-  }, [])
 
-  const stopCamera = useCallback(() => {
-    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current)
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    streamRef.current = null
-  }, [])
-
-  const startDecoding = useCallback(async () => {
     try {
       const { BrowserMultiFormatReader } = await import('@zxing/library')
-      const reader = new BrowserMultiFormatReader()
-      scanIntervalRef.current = setInterval(async () => {
-        if (!videoRef.current) return
-        try {
-          const result = await reader.decodeFromVideoElement(videoRef.current)
-          if (result) {
-            const val = result.getText()
+      const codeReader = new BrowserMultiFormatReader() as unknown as ZXingReader
+      readerRef.current = codeReader
+
+      if (!videoRef.current) {
+        setCameraError('Video element not ready. Please try again.')
+        setCameraLoading(false)
+        return
+      }
+
+      await codeReader.decodeFromVideoDevice(
+        null, // null = let the browser pick the default/rear camera
+        videoRef.current,
+        (decodeResult?: ZXingResult) => {
+          if (decodeResult) {
+            const val = decodeResult.getText()
             setLastScan(val)
             onScan(val)
             stopCamera()
           }
-        } catch { /* no barcode in frame */ }
-      }, 400)
-    } catch {
-      setCameraError('Barcode library unavailable. Use USB scanner or manual entry.')
+          // errors fire continuously for "no barcode in this frame" - ignored
+        }
+      )
+
+      setCameraLoading(false)
+    } catch (err: any) {
+      console.error('Camera start error:', err)
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        setCameraError('Camera permission denied. Check your browser/site settings and allow camera access, then try again.')
+      } else if (err?.name === 'NotFoundError') {
+        setCameraError('No camera found on this device. Use USB scanner or manual entry.')
+      } else if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        setCameraError('Camera requires a secure connection (HTTPS). This page is not served over HTTPS.')
+      } else {
+        setCameraError('Could not start camera. Use USB scanner or manual entry.')
+      }
+      setCameraLoading(false)
     }
   }, [onScan, stopCamera])
 
@@ -111,7 +147,7 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
     if (mode === 'camera') startCamera()
     else stopCamera()
     return () => stopCamera()
-  }, [mode])
+  }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -194,33 +230,49 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
           {/* Camera Mode */}
           {mode === 'camera' && (
             <div className="space-y-3">
-              {cameraLoading && (
-                <div className="flex flex-col items-center gap-3 py-8">
-                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-                  <div className="text-sm text-gray-500">Starting camera...</div>
-                </div>
-              )}
+              {/* Video element stays mounted whenever camera mode is active so
+                  zxing has something to attach the stream to immediately;
+                  loading/error states are shown as overlays on top instead
+                  of swapping the element out, which was likely contributing
+                  to the black-box issue (video ref not present when the
+                  decode call fired). */}
+              <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-cover"
+                  muted
+                  playsInline
+                  autoPlay
+                />
+
+                {cameraLoading && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
+                    <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                    <div className="text-sm text-white">Starting camera...</div>
+                  </div>
+                )}
+
+                {!cameraLoading && !cameraError && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="border-2 border-emerald-400 w-48 h-32 rounded-lg opacity-70" />
+                    </div>
+                    <div className="absolute bottom-2 left-0 right-0 text-center text-white text-xs bg-black/40 py-1">
+                      Center barcode or QR code in the frame
+                    </div>
+                  </>
+                )}
+              </div>
+
               {cameraError && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  {cameraError}
-                </div>
-              )}
-              {!cameraLoading && !cameraError && (
-                <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                  />
-                  {/* Scan overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="border-2 border-emerald-400 w-48 h-32 rounded-lg opacity-70" />
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    {cameraError}
                   </div>
-                  <div className="absolute bottom-2 left-0 right-0 text-center text-white text-xs bg-black/40 py-1">
-                    Center barcode or QR code in the frame
-                  </div>
+                  <button onClick={startCamera} className="btn btn-secondary w-full justify-center text-sm">
+                    Try Again
+                  </button>
                 </div>
               )}
             </div>
