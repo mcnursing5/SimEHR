@@ -8,6 +8,7 @@ export async function proxy(request: NextRequest) {
   // set-password establishes its own session from the URL hash token
   const bypassRoutes = [
     '/auth/login',
+    '/auth/register',
     '/auth/forgot-password',
     '/auth/set-password',
     '/auth/callback',

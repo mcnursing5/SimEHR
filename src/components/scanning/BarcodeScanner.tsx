@@ -103,8 +103,23 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
     }
 
     try {
-      const { BrowserMultiFormatReader } = await import('@zxing/library')
-      const codeReader = new BrowserMultiFormatReader() as unknown as ZXingReader
+      const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('@zxing/library')
+
+      // Increase decode aggressiveness: try harder per frame, support all
+      // common barcode formats, and use multiple decode attempts per image.
+      const hints = new Map()
+      hints.set(DecodeHintType.TRY_HARDER, true)
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.QR_CODE,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.DATA_MATRIX,
+        BarcodeFormat.PDF_417,
+      ])
+
+      const codeReader = new BrowserMultiFormatReader(hints) as unknown as ZXingReader
       readerRef.current = codeReader
 
       if (!videoRef.current) {
@@ -113,8 +128,26 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
         return
       }
 
+      // Request the rear-facing camera explicitly via getUserMedia first
+      // (higher resolution + environment facingMode), then hand the stream
+      // directly to zxing via the video element rather than letting zxing
+      // call getUserMedia internally with no constraints (which may pick
+      // the front camera or low resolution on some Android devices).
+      let deviceId: string | null = null
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const videoDevices = devices.filter(d => d.kind === 'videoinput')
+        // Prefer a device whose label mentions "back", "rear", or "environment"
+        const rearDevice = videoDevices.find(d =>
+          /back|rear|environment/i.test(d.label)
+        )
+        deviceId = rearDevice?.deviceId ?? videoDevices[videoDevices.length - 1]?.deviceId ?? null
+      } catch {
+        // enumerateDevices may fail if no permission yet; fall back to null
+      }
+
       await codeReader.decodeFromVideoDevice(
-        null, // null = let the browser pick the default/rear camera
+        deviceId,
         videoRef.current,
         (decodeResult?: ZXingResult) => {
           if (decodeResult) {
@@ -127,6 +160,7 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
         }
       )
 
+      videoRef.current?.play?.().catch(() => {})
       setCameraLoading(false)
     } catch (err: any) {
       console.error('Camera start error:', err)
@@ -237,12 +271,19 @@ export default function BarcodeScanner({ title, instruction, onScan, onClose, ex
                   to the black-box issue (video ref not present when the
                   decode call fired). */}
               <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                {/* No muted/playsInline/autoPlay props here on purpose:
+                    zxing's BrowserCodeReader sets these via setAttribute()
+                    directly on this DOM node once decodeFromVideoDevice runs.
+                    If React also "owns" those same attributes as JSX props,
+                    React's re-render reconciliation can strip or reset what
+                    zxing just set (e.g. whenever cameraLoading/cameraError
+                    state changes triggers a re-render), which silently kills
+                    playback and produces exactly a black box with no error.
+                    Letting zxing fully own this element's attributes avoids
+                    that fight. */}
                 <video
                   ref={videoRef}
                   className="w-full h-full object-cover"
-                  muted
-                  playsInline
-                  autoPlay
                 />
 
                 {cameraLoading && (
