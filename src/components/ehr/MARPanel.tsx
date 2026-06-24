@@ -177,7 +177,7 @@ export default function MARPanel({ sessionId, medications, patientVerified, pati
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="section-title mb-0 flex items-center gap-2">
-          <Pill className="w-5 h-5 text-emerald-500" /> Medication Administration Record
+          Medication Administration Record
         </h2>
         {!isReadOnly && (
           <button onClick={resetMAR} disabled={resetting || entries.length === 0}

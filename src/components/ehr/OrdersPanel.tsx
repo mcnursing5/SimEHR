@@ -102,7 +102,7 @@ export default function OrdersPanel({ sessionId, orders }: { sessionId: string; 
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="section-title mb-0 flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-emerald-500" /> Order Entry / Management
+           Order Entry / Management
         </h2>
         <div className="flex gap-2 text-xs">
           <span className="badge badge-red">{statOrders.filter(o => o.status !== 'completed').length} STAT</span>

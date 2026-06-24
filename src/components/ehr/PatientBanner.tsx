@@ -70,7 +70,7 @@ export default function PatientBanner({ patient, encounterNumber }: { patient: a
       )}
 
       {/* Sim badge */}
-      <div className="ml-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded">
+      <div className="ml-2 bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded">
         SIM ONLY
       </div>
     </div>

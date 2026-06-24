@@ -14,7 +14,7 @@ export default function LabResultsPanel({ labResults }: { labResults: any[] }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="section-title mb-0 flex items-center gap-2">
-          <TestTube className="w-5 h-5 text-emerald-500" /> Lab Results &amp; Diagnostics
+          Lab Results &amp; Diagnostics
         </h2>
         {criticalCount > 0 && (
           <div className="flex items-center gap-1.5 text-red-600 bg-red-50 border border-red-200 rounded px-3 py-1 text-sm font-semibold">
