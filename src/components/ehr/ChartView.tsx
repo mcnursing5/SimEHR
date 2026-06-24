@@ -119,7 +119,7 @@ export default function ChartView({ courseSimId, studentId }: { courseSimId: str
           {/* Submit button — always visible once patient is verified */}
           <button
             onClick={() => setShowSubmitModal(true)}
-            className="btn btn-sm bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+            className="btn btn-sm btn-primary"
           >
             <LogOut className="w-3.5 h-3.5" /> Submit Simulation
           </button>
@@ -131,7 +131,7 @@ export default function ChartView({ courseSimId, studentId }: { courseSimId: str
         <div className="bg-gray-50 border-b border-gray-200 px-4 py-1.5 flex justify-end">
           <button
             onClick={() => setShowSubmitModal(true)}
-            className="btn btn-sm bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+            className="btn btn-sm btn-primary"
           >
             <LogOut className="w-3.5 h-3.5" /> Submit Simulation
           </button>
@@ -191,13 +191,13 @@ export default function ChartView({ courseSimId, studentId }: { courseSimId: str
       {showSubmitModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="bg-red-600 px-5 py-4 flex items-center justify-between">
+            <div className="bg-emerald-600 px-5 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2 text-white">
-                <AlertTriangle className="w-5 h-5" />
+                <AlertTriangle className="w-5 h-5 text-white" />
                 <span className="font-semibold">Submit Simulation</span>
               </div>
               <button onClick={() => setShowSubmitModal(false)} disabled={submitting}>
-                <X className="w-5 h-5 text-red-200 hover:text-white" />
+                <X className="w-5 h-5 text-emerald-200 hover:text-white" />
               </button>
             </div>
             <div className="p-6 space-y-4">
@@ -205,9 +205,9 @@ export default function ChartView({ courseSimId, studentId }: { courseSimId: str
                 Are you sure you want to submit this simulation? Once submitted:
               </p>
               <ul className="text-sm text-gray-600 space-y-1.5">
-                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">•</span>You will not be able to make further changes</li>
-                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">•</span>Your chart will be available for faculty review</li>
-                <li className="flex items-start gap-2"><span className="text-red-500 font-bold mt-0.5">•</span>You will be returned to the dashboard</li>
+                <li className="flex items-start gap-2"><span className="text-emerald-500 font-bold mt-0.5">•</span>You will not be able to make further changes</li>
+                <li className="flex items-start gap-2"><span className="text-emerald-500 font-bold mt-0.5">•</span>Your chart will be available for faculty review</li>
+                <li className="flex items-start gap-2"><span className="text-emerald-500 font-bold mt-0.5">•</span>You will be returned to the dashboard</li>
               </ul>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
                 Make sure you have documented all vitals, medications, and notes before submitting.
@@ -216,7 +216,7 @@ export default function ChartView({ courseSimId, studentId }: { courseSimId: str
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 flex-1 justify-center"
+                  className="btn btn-primary flex-1 justify-center"
                 >
                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Submitting...</> : <><LogOut className="w-4 h-4" />Yes, Submit</>}
                 </button>
