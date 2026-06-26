@@ -76,7 +76,7 @@ export default async function FacultyReviewDetailPage({ params }: { params: Prom
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table>div className="flex
           </div>
         </div>
 

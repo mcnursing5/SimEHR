@@ -47,6 +47,7 @@ export default function AppShell({ profile, children }: { profile: any; children
       { section: 'Content' },
       { label: 'All Courses', href: '/admin/courses' },
       { label: 'Sim Repository', href: '/admin/repository' },
+      { label: 'Analytics', href: '/faculty/analytics' },
       { section: 'Account' },
       { label: 'Settings', href: '/admin/settings' },
     ],
@@ -57,10 +58,11 @@ export default function AppShell({ profile, children }: { profile: any; children
       { label: 'Faculty Assignments', href: '/admin/faculty' },
       { label: 'All Courses', href: '/admin/courses' },
       { section: 'Simulations' },
-      { label: 'Sim Repository', href: '/admin/repository' },
+      { label: 'Sim Repository', href: '/faculty/repository' },
       { label: 'Create Scenario', href: '/faculty/scenarios/new' },
       { section: 'Review' },
       { label: 'All Student Charts', href: '/sim-coordinator/review' },
+      { label: 'Analytics', href: '/faculty/analytics' },
     ],
     faculty: [
       { label: 'Dashboard', href: '/dashboard' },
@@ -72,6 +74,7 @@ export default function AppShell({ profile, children }: { profile: any; children
       { label: 'Create Scenario', href: '/faculty/scenarios/new' },
       { section: 'Review' },
       { label: 'Student Charts', href: '/faculty/review' },
+      { label: 'Analytics', href: '/faculty/analytics' },
     ],
     student: [
       { label: 'Dashboard', href: '/dashboard' },

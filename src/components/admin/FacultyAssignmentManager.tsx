@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { Users, Plus, Trash2, X, Loader2, BookOpen, Search, GraduationCap } from 'lucide-react'
+import { Plus, Trash2, X, Loader2, Search } from 'lucide-react'
 
 export default function FacultyAssignmentManager({ faculty, courses, assignments: initial }: {
   faculty: any[]; courses: any[]; assignments: any[]
@@ -55,10 +55,10 @@ export default function FacultyAssignmentManager({ faculty, courses, assignments
     return matchSearch && matchFaculty
   })
 
-  // Group by faculty
+  // Group by faculty — use faculty_id as key (always unique, never undefined)
   const byFaculty = filtered.reduce((acc, a) => {
-    const key = a.faculty_id
-    if (!acc[key]) acc[key] = { faculty: a.faculty, items: [] }
+    const key = a.faculty_id ?? `unknown-${a.id}`
+    if (!acc[key]) acc[key] = { faculty: a.faculty, facultyId: key, items: [] }
     acc[key].items.push(a)
     return acc
   }, {} as Record<string, any>)
@@ -71,9 +71,7 @@ export default function FacultyAssignmentManager({ faculty, courses, assignments
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            Faculty Course Assignments
-          </h1>
+          <h1 className="page-title">Faculty Course Assignments</h1>
           <p className="text-gray-500 text-sm mt-1">
             {assignments.length} assignments · {faculty.length} faculty members
           </p>
@@ -85,8 +83,7 @@ export default function FacultyAssignmentManager({ faculty, courses, assignments
 
       {unassignedFaculty.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
-            <GraduationCap className="w-4 h-4" />
+          <div className="text-sm font-semibold text-amber-700 mb-2">
             {unassignedFaculty.length} faculty member{unassignedFaculty.length !== 1 ? 's' : ''} not yet assigned to any course:
           </div>
           <div className="flex flex-wrap gap-2">
@@ -171,16 +168,15 @@ export default function FacultyAssignmentManager({ faculty, courses, assignments
       {/* Assignments grouped by faculty */}
       {Object.keys(byFaculty).length === 0 && (
         <div className="ehr-card p-10 text-center">
-          <Users className="w-12 h-12 text-gray-200 mx-auto mb-4" />
           <div className="text-gray-400">No assignments yet. Use the button above to assign faculty to courses.</div>
         </div>
       )}
 
       {Object.values(byFaculty).map((group: any) => (
-        <div key={group.faculty?.id ?? 'unknown'} className="ehr-card">
+        <div key={group.facultyId} className="ehr-card">
           <div className="ehr-card-header bg-gray-50">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                 {group.faculty?.first_name?.[0]}{group.faculty?.last_name?.[0]}
               </div>
               <div>
@@ -193,13 +189,10 @@ export default function FacultyAssignmentManager({ faculty, courses, assignments
           <div className="divide-y divide-gray-100">
             {group.items.map((a: any) => (
               <div key={a.id} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <BookOpen className="w-4 h-4 text-emerald-400" />
-                  <div>
-                    <span className="font-mono font-bold text-emerald-700">{a.course?.course_code}</span>
-                    <span className="text-sm text-gray-700 ml-2">{a.course?.title}</span>
-                    <div className="text-xs text-gray-400">{a.course?.semester?.name}</div>
-                  </div>
+                <div>
+                  <span className="font-mono font-bold text-emerald-700">{a.course?.course_code}</span>
+                  <span className="text-sm text-gray-700 ml-2">{a.course?.title}</span>
+                  <div className="text-xs text-gray-400">{a.course?.semester?.name}</div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="badge badge-gray text-xs capitalize">{a.role.replace('_', ' ')}</span>

@@ -335,7 +335,7 @@ export default function ScenarioBuilder({ facultyId, existingScenario }: { facul
               </div>
               <div>
                 <label className="form-label">Duration (minutes)</label>
-                <input className="form-input" type="number" min="5" max="480"
+                <input className="form-input" type="number" min="20" max="60"
                   value={info.estimated_duration_minutes}
                   onChange={e => setInfo(i => ({...i, estimated_duration_minutes: parseInt(e.target.value)}))} />
               </div>
