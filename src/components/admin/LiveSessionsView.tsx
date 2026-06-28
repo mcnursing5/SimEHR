@@ -4,17 +4,40 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+interface StudentInfo { first_name: string; last_name: string; email: string }
+interface CourseInfo { course_code: string; title: string }
+interface ScenarioInfo { title: string; category: string; estimated_duration_minutes: number }
+
 interface Session {
   id: string
   started_at: string
   last_active_at: string | null
   status: string
-  student: { first_name: string; last_name: string; email: string } | null
+  student: StudentInfo | StudentInfo[] | null
   course_simulation: {
     encounter_number: string
-    course: { course_code: string; title: string } | null
-    scenario: { title: string; category: string; estimated_duration_minutes: number } | null
+    course: CourseInfo | CourseInfo[] | null
+    scenario: ScenarioInfo | ScenarioInfo[] | null
   } | null
+}
+
+// Normalize Supabase nested relations which can return as array or single object
+function norm<T>(val: T | T[] | null): T | null {
+  if (val === null || val === undefined) return null
+  return Array.isArray(val) ? (val[0] ?? null) : val
+}
+
+function normalizeSession(s: any): Session {
+  const cs = s.course_simulation
+  return {
+    ...s,
+    student: norm(s.student),
+    course_simulation: cs ? {
+      ...cs,
+      course: norm(cs.course),
+      scenario: norm(cs.scenario),
+    } : null,
+  }
 }
 
 function elapsed(startedAt: string) {
@@ -45,7 +68,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function LiveSessionsView({ sessions: initial }: { sessions: Session[] }) {
   const supabase = createClient()
   const router = useRouter()
-  const [sessions, setSessions] = useState<Session[]>(initial)
+  const [sessions, setSessions] = useState<Session[]>((initial as any[]).map(normalizeSession))
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [refreshing, setRefreshing] = useState(false)
   const [tick, setTick] = useState(0)
@@ -69,15 +92,7 @@ export default function LiveSessionsView({ sessions: initial }: { sessions: Sess
       .order('started_at', { ascending: false })
 
     if (data) {
-      setSessions(data.map((s: any) => ({
-        ...s,
-        student: Array.isArray(s.student) ? s.student[0] ?? null : s.student,
-        course_simulation: s.course_simulation ? {
-          ...s.course_simulation,
-          course: Array.isArray(s.course_simulation.course) ? s.course_simulation.course[0] ?? null : s.course_simulation.course,
-          scenario: Array.isArray(s.course_simulation.scenario) ? s.course_simulation.scenario[0] ?? null : s.course_simulation.scenario,
-        } : null,
-      })))
+      setSessions(data.map((s: any) => normalizeSession(s)))
     }
     setLastRefresh(new Date())
     setRefreshing(false)

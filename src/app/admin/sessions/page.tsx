@@ -17,7 +17,7 @@ export default async function AdminSessionsPage() {
     redirect('/dashboard')
   }
 
-  const { data: sessions } = await supabase
+  const { data: sessionsRaw } = await supabase
     .from('student_sessions')
     .select(`
       id, started_at, last_active_at, status,
@@ -35,7 +35,7 @@ export default async function AdminSessionsPage() {
 
   return (
     <AppShell profile={profile}>
-      <LiveSessionsView sessions={sessions ?? []} />
+      <LiveSessionsView sessions={(sessionsRaw ?? []) as any[]} />
     </AppShell>
   )
 }
