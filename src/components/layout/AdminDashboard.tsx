@@ -24,7 +24,7 @@ export default async function AdminDashboard({ profile }: { profile: any }) {
     { label: 'Total Users',         value: userCount ?? 0,         href: '/admin/users' },
     { label: 'Total Courses',        value: courseCount ?? 0,        href: '/admin/courses' },
     { label: 'Published Scenarios',  value: scenarioCount ?? 0,      href: '/admin/repository' },
-    { label: 'Live Sessions',        value: activeSessionCount ?? 0, href: '/faculty/analytics' },
+    { label: 'Live Sessions',        value: activeSessionCount ?? 0, href: '/admin/sessions' },
   ]
 
   return (
