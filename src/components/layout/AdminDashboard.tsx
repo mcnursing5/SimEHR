@@ -21,22 +21,20 @@ export default async function AdminDashboard({ profile }: { profile: any }) {
   ])
 
   const stats = [
-    { label: 'Total Users', value: userCount ?? 0, href: '/admin/users' },
-    { label: 'Total Courses', value: courseCount ?? 0, href: '/admin/courses' },
-    { label: 'Published Scenarios', value: scenarioCount ?? 0, href: '/admin/repository' },
-    { label: 'Live Sessions', value: activeSessionCount ?? 0, href: '/admin/sessions' },
+    { label: 'Total Users',         value: userCount ?? 0,         href: '/admin/users' },
+    { label: 'Total Courses',        value: courseCount ?? 0,        href: '/admin/courses' },
+    { label: 'Published Scenarios',  value: scenarioCount ?? 0,      href: '/admin/repository' },
+    { label: 'Live Sessions',        value: activeSessionCount ?? 0, href: '/faculty/analytics' },
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            Admin Dashboard
-          </h1>
+          <h1 className="page-title">Admin Dashboard</h1>
           <p className="text-gray-500 text-sm mt-1">System overview — SimEHR</p>
         </div>
-        <Link href="/admin/users/invite" className="btn btn-primary btn-sm">
+        <Link href="/admin/users" className="btn btn-primary btn-sm">
           <Plus className="w-4 h-4" /> Invite User
         </Link>
       </div>
@@ -44,12 +42,8 @@ export default async function AdminDashboard({ profile }: { profile: any }) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(stat => (
           <Link key={stat.label} href={stat.href} className="ehr-card p-5 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <div className="text-xs text-gray-500">{stat.label}</div>
-              </div>
-            </div>
+            <div className="text-2xl font-bold">{stat.value}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
           </Link>
         ))}
       </div>
@@ -74,7 +68,11 @@ export default async function AdminDashboard({ profile }: { profile: any }) {
                 <td className="font-medium">{u.last_name}, {u.first_name}</td>
                 <td className="text-gray-500">{u.email}</td>
                 <td>
-                  <span className={`badge ${u.role === 'admin' ? 'badge-purple' : u.role === 'faculty' ? 'badge-green' : 'badge-blue'}`}>
+                  <span className={`badge ${
+                    u.role === 'admin' ? 'badge-purple' :
+                    u.role === 'sim_coordinator' ? 'badge-indigo' :
+                    u.role === 'faculty' ? 'badge-green' : 'badge-blue'
+                  }`}>
                     {u.role}
                   </span>
                 </td>
