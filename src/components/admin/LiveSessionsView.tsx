@@ -8,7 +8,8 @@ interface StudentInfo { first_name: string; last_name: string; email: string }
 interface CourseInfo { course_code: string; title: string }
 interface ScenarioInfo { title: string; category: string; estimated_duration_minutes: number }
 
-interface Session {
+// Raw shape from Supabase (nested relations may come back as arrays)
+interface SessionRaw {
   id: string
   started_at: string
   last_active_at: string | null
@@ -21,13 +22,27 @@ interface Session {
   } | null
 }
 
+// Normalized shape used throughout the component (single objects, never arrays)
+interface Session {
+  id: string
+  started_at: string
+  last_active_at: string | null
+  status: string
+  student: StudentInfo | null
+  course_simulation: {
+    encounter_number: string
+    course: CourseInfo | null
+    scenario: ScenarioInfo | null
+  } | null
+}
+
 // Normalize Supabase nested relations which can return as array or single object
 function norm<T>(val: T | T[] | null): T | null {
   if (val === null || val === undefined) return null
   return Array.isArray(val) ? (val[0] ?? null) : val
 }
 
-function normalizeSession(s: any): Session {
+function normalizeSession(s: SessionRaw): Session {
   const cs = s.course_simulation
   return {
     ...s,
@@ -68,7 +83,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function LiveSessionsView({ sessions: initial }: { sessions: Session[] }) {
   const supabase = createClient()
   const router = useRouter()
-  const [sessions, setSessions] = useState<Session[]>((initial as any[]).map(normalizeSession))
+  const [sessions, setSessions] = useState<Session[]>((initial as SessionRaw[]).map(normalizeSession))
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [refreshing, setRefreshing] = useState(false)
   const [tick, setTick] = useState(0)
@@ -92,7 +107,7 @@ export default function LiveSessionsView({ sessions: initial }: { sessions: Sess
       .order('started_at', { ascending: false })
 
     if (data) {
-      setSessions(data.map((s: any) => normalizeSession(s)))
+      setSessions((data as SessionRaw[]).map(normalizeSession))
     }
     setLastRefresh(new Date())
     setRefreshing(false)
