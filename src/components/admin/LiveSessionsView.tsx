@@ -48,7 +48,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   psychiatric: 'badge-purple', postoperative: 'badge-gray', general: 'badge-gray',
 }
 
-export default function LiveSessionsView({ sessions: initial }: { sessions: Session[] }) {
+export default function LiveSessionsView({ sessions: initial }: { sessions: any[] }) {
   const supabase = createClient()
   const router = useRouter()
   const [sessions, setSessions] = useState<any[]>((initial as any[]).map(normalizeSession))
