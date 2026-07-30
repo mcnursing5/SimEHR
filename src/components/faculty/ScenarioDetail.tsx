@@ -75,10 +75,22 @@ export default function ScenarioDetail({ scenario, assignments, userId, userRole
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            {/* Patient wristband labels */}
             {scenario.patient && (
               <button onClick={() => setShowLabelGen(true)} className="btn btn-secondary">
                 <Printer className="w-4 h-4" /> Print Labels
               </button>
+            )}
+            {/* Medication labels — opens in new tab */}
+            {scenario.medications?.length > 0 && (
+              <a
+                href={`/faculty/scenarios/${scenario.id}/labels`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary"
+              >
+                <Pill className="w-4 h-4" /> Med Labels
+              </a>
             )}
             {canEdit && (
               <>
@@ -198,7 +210,19 @@ export default function ScenarioDetail({ scenario, assignments, userId, userRole
       {/* MEDICATIONS */}
       {activeTab === 'meds' && (
         <div className="ehr-card overflow-x-auto">
-          <div className="ehr-card-header"><span className="font-semibold text-sm flex items-center gap-2"><Pill className="w-4 h-4 text-emerald-500" /> Medications</span></div>
+          <div className="ehr-card-header">
+            <span className="font-semibold text-sm flex items-center gap-2"><Pill className="w-4 h-4 text-emerald-500" /> Medications</span>
+            {scenario.medications?.length > 0 && (
+              <a
+                href={`/faculty/scenarios/${scenario.id}/labels`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary btn-sm"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Med Labels
+              </a>
+            )}
+          </div>
           <table className="ehr-table">
             <thead><tr><th>Generic Name</th><th>Brand</th><th>Class</th><th>Dose / Route</th><th>Frequency</th><th>Indication</th><th>PRN</th><th>Barcode</th></tr></thead>
             <tbody>
@@ -308,7 +332,7 @@ export default function ScenarioDetail({ scenario, assignments, userId, userRole
         </div>
       )}
 
-      {/* Label Modal */}
+      {/* Patient Label Modal */}
       {showLabelGen && scenario.patient && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
